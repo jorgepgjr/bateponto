@@ -1,91 +1,89 @@
 package br.com.silvia;
 
-import java.io.BufferedWriter;
+import java.awt.Rectangle;
+import java.awt.Robot;
+import java.awt.Toolkit;
+import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.text.ParseException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import org.quartz.CronTrigger;
-import org.quartz.Job;
-import org.quartz.JobDetail;
-import org.quartz.JobExecutionContext;
-import org.quartz.JobExecutionException;
-import org.quartz.Scheduler;
-import org.quartz.SchedulerException;
-import org.quartz.impl.StdSchedulerFactory;
+import javax.imageio.ImageIO;
 
-public class BatePonto implements Job {
+import org.openqa.selenium.By;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.firefox.FirefoxBinary;
+import org.openqa.selenium.firefox.FirefoxDriver;
+import org.openqa.selenium.firefox.FirefoxProfile;
 
-	public static void main(String[] args) throws IOException,
-			InterruptedException, ParseException, SchedulerException {
+public class BatePonto {
 
-		JobDetail job = new JobDetail();
-		job.setJobClass(BatePonto.class);
-		job.setDurability(true);
-		job.setName("dummyJobName");
-		job.setGroup("tests");
+	public static List<Ponto> execute() {
+		return BatePonto.execute(null);
+	}
+	public static List<Ponto> execute(String firefoxPath) {		
+		System.setProperty("java.awt.headless", "false");
+		WebDriver driver = new FirefoxDriver();
+		if (firefoxPath != null) {
+			FirefoxBinary binary = new FirefoxBinary(new File(firefoxPath));
+			FirefoxProfile profile = new FirefoxProfile();			
+			driver = new FirefoxDriver(binary, profile);
+		}
+		
+		// System.setProperty("webdriver.chrome.driver",
+		// "src/main/resources/chromedriver.exe");
+		// ChromeDriver(DesiredCapabilities.chrome());
 
-		CronTrigger triggerEntrada = new CronTrigger();
-		triggerEntrada.setName("triggerEntrada");
-		triggerEntrada.setCronExpression("0 20 8 ? * MON-FRI *");
-		triggerEntrada.setJobName("dummyJobName");
-		triggerEntrada.setJobGroup("tests");
+		final List<Ponto> pontos = new ArrayList<Ponto>();
+		try {
+			driver.get("http://ppm.rsinet.com.br/channel/apontamento.do");
+			driver.findElement(By.name("username")).sendKeys("silvia.correa");
+			driver.findElement(By.name("password")).sendKeys("Mellany1802");
+			driver.findElement(By.id("entrar")).click();
 
-		CronTrigger triggerAlmoco = new CronTrigger();
-		triggerAlmoco.setName("triggerAlmoco");
-		triggerAlmoco.setCronExpression("0 0 12 ? * MON-FRI *");
-		triggerAlmoco.setJobName("dummyJobName");
-		triggerAlmoco.setJobGroup("tests");
+			// Apenas para esperar a página carregar
+			driver.findElement(By.linkText("Ferramentas"));
 
-		CronTrigger triggerAlmocoVolta = new CronTrigger();
-		triggerAlmocoVolta.setName("triggerAlmocoVolta");
-		triggerAlmocoVolta.setCronExpression("0 5 13 ? * MON-FRI *");
-		triggerAlmocoVolta.setJobName("dummyJobName");
-		triggerAlmocoVolta.setJobGroup("tests");
+			// Executa JS para mostrar o Modal de registar ponto
+			((JavascriptExecutor) driver)
+					.executeScript("showModalRegistroPonto();");
+			Thread.sleep(1000L);
 
-		CronTrigger triggerSaida = new CronTrigger();
-		triggerSaida.setName("triggerSaida");
-		triggerSaida.setCronExpression("0 30 17 ? * MON-FRI *");
-		triggerSaida.setJobName("dummyJobName");
-		triggerSaida.setJobGroup("tests");
+			if (App.isBatePontoSelected()) {
+				// Registra o ponto				
+				((JavascriptExecutor) driver)
+				.executeScript("baterPonto(ID_USUARIO);");
+			}
 
-		// schedule it
-		Scheduler scheduler = new StdSchedulerFactory().getScheduler();
-		scheduler.start();
-		scheduler.addJob(job, true);	
-		scheduler.scheduleJob(triggerEntrada);
-		scheduler.scheduleJob(triggerAlmoco);
-		scheduler.scheduleJob(triggerAlmocoVolta);
-		scheduler.scheduleJob(triggerSaida);
+			// driver.findElement(By.linkText("Ferramentas")).click();
+			// driver.findElement(By.linkText("registrar ponto")).click();
+			// Registra o ponto
+			// driver.findElement(By.id("botaoRegistrarPonto")).click();
+
+		} catch (Exception e) {
+			System.out.println(e);
+			driver.close();
+		}
+		driver.close();
+		return pontos;
 	}
 
-	@Override
-	public void execute(JobExecutionContext arg0) throws JobExecutionException {
-		System.out.println("Disparado o methodo execute em:  " + new Date());
+	public static void takeSS() {
+		Robot robot;
 		try {
-			List<Ponto> pontos = Application.execute();
-			File file = new File("/home/jorge/Documentos/ponto.txt");
-			
-			// if file doesnt exists, then create it
-			if (!file.exists()) {
-				file.createNewFile();
-			}
-			FileWriter fw = new FileWriter(file.getAbsoluteFile(), true);
-			BufferedWriter bw = new BufferedWriter(fw);
-			PrintWriter out = new PrintWriter(bw);
-			if(pontos != null){
-				for (Ponto ponto : pontos) {
-					out.println(ponto.getData() + "   " + ponto.getHoraIni() + "   " + ponto.getHoraFim());					
-				}
-			}
-			out.close();
-			
-				
-		} catch (IOException | InterruptedException e) {
+			robot = new Robot();
+			BufferedImage a = robot.createScreenCapture(new Rectangle(Toolkit
+					.getDefaultToolkit().getScreenSize()));
+			Date date = new Date();
+			DateFormat dateFormat = new SimpleDateFormat("dd_MM-HH_mm_ss");
+			File ss = new File("./src/main/resources/"
+					+ dateFormat.format(date) + ".jpg");
+			ImageIO.write(a, "jpg", ss);
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
 	}

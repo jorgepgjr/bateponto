@@ -17,11 +17,16 @@ public class GeraMinutosTest {
 	
 	@Test
 	public void geraMinutosAleatoriosEntradaTest(){
-		for (int i = 0; i < 60; i++) {
+		int max = 0;
+		int min = 60;
+		for (int i = 0; i < 1000; i++) {
 			int f = GeraMinutos.geraMinutosAleatoriosEntrada();
 			System.out.println(String.format("%02d", f));
-			Assert.assertTrue(f <= 30 && f >= 20);
+			Assert.assertTrue(f <= 40 && f >= 15);
+			max = f > max ? f : max;
+			min = f < min ? f : min;
 		}
+		System.out.println("Max = " + max + "  Min = "+ min);
 	}
 	
 }
